@@ -82,6 +82,23 @@ namespace BasicOpenTk
             GL.DeleteShader(vertexShaderObject);
             GL.DeleteShader(fragmentShaderOjbect);
 
+            //normalized device coordinates space
+            //var vertices = new float[] //defined on ram need to move it to graphics ram will be moved via graphics buffer
+            //{
+            //    -0.5f, 0.5f, 0f, 1f, 0f, 0f, 1f,     //vertex0 position (2 floats) color (4 floats)
+            //    0.5f, 0.5f, 0f, 0f, 1f, 0f, 1f,     //vertex1
+            //    0.5f, -0.5f, 0f, 0f, 0f, 1f, 0f,     //vertex2
+            //    -0.5f, -0.5f, 0f, 0f, 0f, 1f, 0f,     //vertex3
+            //};
+
+            //screen space or pixel coordinates
+            //var vertices = new float[]
+            //{
+            //    x, y + h, 1f, 0f, 0f, 1f, // position (2 floats) color (4 floats)
+            //    x + w, y + h, 0f, 1f, 0f, 1f,
+            //    x + w, y, 0f, 0f, 1f, 0f,
+            //    x, y, 0f, 0f, 1f, 0f,
+            //};
 
             base.OnLoad();
         }
