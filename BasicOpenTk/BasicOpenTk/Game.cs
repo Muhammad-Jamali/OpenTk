@@ -9,15 +9,27 @@ namespace BasicOpenTk
 
     public class Game : GameWindow
     {
-        private int _vertexBufferHandle;
-        private int _shaderProgramHandle;
-        private int _vertexArrayHandle;
+        private int _vertexBufferObject;
+        private int _shaderProgramObject;
+        private int _vertexArrayObject;
+        private int _indexBufferObject;
 
-        public Game()
-            : base(GameWindowSettings.Default, NativeWindowSettings.Default)
+        public Game(int width = 1280, int height = 768, string title = "Game1")
+            : base(
+                  GameWindowSettings.Default,
+                  new NativeWindowSettings()
+                  {
+                      Title = title,
+                      Size = new Vector2i(width, height),
+                      WindowBorder = WindowBorder.Fixed,
+                      StartVisible = false,
+                      StartFocused = true,
+                      API = ContextAPI.OpenGL,
+                      Profile = ContextProfile.Core,
+                      APIVersion = new Version(3, 3)
+                  })
         {
-            CenterWindow(new Vector2i(1280, 768));
-
+            CenterWindow();
         }
 
         protected override void OnResize(ResizeEventArgs e)
@@ -28,79 +40,99 @@ namespace BasicOpenTk
 
         protected override void OnLoad()
         {
+            IsVisible = true;
+
             GL.ClearColor(new Color4(0.3f, 0.4f, 0.5f, 1f));
 
-            float[] vertices = new float[] //defined on ram need to move it to graphics ram will be moved via graphics buffer
+            var vertices = new float[] //defined on ram need to move it to graphics ram will be moved via graphics buffer
+           {
+                 -0.5f, 0.5f, 0f, 1f, 0f, 0f, 1f,     //vertex0 position (3 floats) color (4 floats)
+                  0.5f, 0.5f, 0f, 0f, 1f, 0f, 1f,     //vertex1
+                  0.5f, -0.5f, 0f, 0f, 0f, 1f, 0f,     //vertex2
+                  -0.5f, -0.5f, 0f, 0f, 0f, 1f, 0f,     //vertex3
+           };
+
+            var indices = new int[]
             {
-                0.0f, 0.5f, 0f, //vertex0
-                0.5f, -0.5f, 0f, //vertex1
-                -0.5f, -0.5f, 0f //vertex2
+                0,1,2,0,2,3
             };
 
-            _vertexBufferHandle = GL.GenBuffer(); //generating the buffer
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferHandle); //binding the vertex buffer to the handle
+            _vertexBufferObject = GL.GenBuffer(); //generating the buffer
+            GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObject); //binding the vertex buffer to the handle
             GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0); //way to unbind the buffer
 
-            _vertexArrayHandle = GL.GenVertexArray();
-            GL.BindVertexArray(_vertexArrayHandle);
+            _indexBufferObject = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, _indexBufferObject);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(int), indices, BufferUsageHint.StaticDraw);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
 
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferHandle);
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+            _vertexArrayObject = GL.GenVertexArray();
+            GL.BindVertexArray(_vertexArrayObject);
+
+            GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObject);
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 7 * sizeof(float), 0);
+            GL.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, false, 7 * sizeof(float), 3 * sizeof(float)); //stride is number of bytes between each vertex
             GL.EnableVertexAttribArray(0);
-
+            GL.EnableVertexAttribArray(1);
             GL.BindVertexArray(0);
 
-            // shaders are written in glsl
-            string vertexShaderCode =
+            // shaders are written in glsl and out is used in vertex shader to pass value to pixel shaders and a is prefix for attribute, v for vertex 
+            var vertexShaderCode =
                 @"
-                        #version 330 core
+                #version 330 core
 
-                        layout (location = 0) in vec3 aPosition;
+                layout (location = 0) in vec3 aPosition;
+                layout (location = 1) in vec4 aColor;
 
-                        void main()
-                        {
-                            gl_Position=vec4(aPosition, 1.0f);
-                        }
-                        ";
+                out vec4 vColor;
+
+                void main()
+                {
+                    vColor = aColor;
+                    gl_Position = vec4(aPosition, 1.0f);
+                }
+                ";
 
             //aka fragment shader
-            string pixelShaderCode =
+            var pixelShaderCode =
                 @"
-                        #version 330 core
+                #version 330 core
 
-                        out vec4 pixelColor;
+                in vec4 vColor;
 
-                        void main()
-                        {
-                            pixelColor=vec4(1.0f, 0.8f, 0.8f, 1.0f);
-                        }
-                        ";
+                out vec4 pixelColor;
+
+                void main()
+                {
+                    pixelColor = vColor;
+                }
+                ";
 
 
 
-            int vertexShaderHanlde = GL.CreateShader(ShaderType.VertexShader);
+            var vertexShaderHanlde = GL.CreateShader(ShaderType.VertexShader);
             GL.ShaderSource(vertexShaderHanlde, vertexShaderCode);
             GL.CompileShader(vertexShaderHanlde);
 
             GetShaderInfoLog(vertexShaderHanlde);
             
-            int pixelShaderHandle = GL.CreateShader(ShaderType.FragmentShader);
+            var pixelShaderHandle = GL.CreateShader(ShaderType.FragmentShader);
             GL.ShaderSource(pixelShaderHandle, pixelShaderCode);
             GL.CompileShader(pixelShaderHandle);
             GetShaderInfoLog(pixelShaderHandle);
 
-            _shaderProgramHandle = GL.CreateProgram();
+            _shaderProgramObject = GL.CreateProgram();
 
-            GL.AttachShader(_shaderProgramHandle, vertexShaderHanlde);
-            GL.AttachShader(_shaderProgramHandle, pixelShaderHandle);
+            GL.AttachShader(_shaderProgramObject, vertexShaderHanlde);
+            GL.AttachShader(_shaderProgramObject, pixelShaderHandle);
 
-            GL.LinkProgram(_shaderProgramHandle);
+            GL.LinkProgram(_shaderProgramObject);
 
             //var buffer = new int[1024];
             //GL.GetShaderInfoLog(vertexShaderHanlde, buffer.Length, );
-            GL.DetachShader(_shaderProgramHandle, vertexShaderHanlde);
-            GL.DetachShader(_shaderProgramHandle, pixelShaderHandle);
+            GL.DetachShader(_shaderProgramObject, vertexShaderHanlde);
+            GL.DetachShader(_shaderProgramObject, pixelShaderHandle);
 
             GL.DeleteShader(vertexShaderHanlde);
             GL.DeleteShader(pixelShaderHandle);
@@ -131,11 +163,17 @@ namespace BasicOpenTk
 
         protected override void OnUnload()
         {
+            GL.BindVertexArray(0);
+            GL.DeleteVertexArray(_vertexArrayObject);
+
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
+            GL.DeleteBuffer(_indexBufferObject);
+
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-            GL.DeleteBuffer(_vertexBufferHandle);
+            GL.DeleteBuffer(_vertexBufferObject);
 
             GL.UseProgram(0);
-            GL.DeleteProgram(_shaderProgramHandle);
+            GL.DeleteProgram(_shaderProgramObject);
             base.OnUnload();
         }
 
@@ -143,11 +181,12 @@ namespace BasicOpenTk
         {
             GL.Clear(ClearBufferMask.ColorBufferBit);
 
-            GL.UseProgram(_shaderProgramHandle);
+            GL.UseProgram(_shaderProgramObject);
+            GL.BindVertexArray(_vertexArrayObject);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, _indexBufferObject);
+            GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 0);
 
-            GL.BindVertexArray(_vertexArrayHandle);
-            GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
-
+            //GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
             Context.SwapBuffers();
             base.OnRenderFrame(args);
         }
